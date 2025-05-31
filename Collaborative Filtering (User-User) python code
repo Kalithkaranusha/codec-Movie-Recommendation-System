@@ -1,0 +1,32 @@
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Load ratings
+ratings = pd.read_csv('ratings.csv')  # userId, movieId, rating
+movie_titles = pd.read_csv('movies.csv')[['movieId', 'title']]
+
+# Merge
+df = pd.merge(ratings, movie_titles, on='movieId')
+
+# Create user-item matrix
+user_movie_ratings = df.pivot_table(index='userId', columns='title', values='rating')
+
+# Fill NA with 0 (you could also use mean user rating)
+user_movie_ratings = user_movie_ratings.fillna(0)
+
+# Compute similarity
+user_similarity = cosine_similarity(user_movie_ratings)
+user_similarity_df = pd.DataFrame(user_similarity, index=user_movie_ratings.index, columns=user_movie_ratings.index)
+
+# Recommend function
+def recommend_movies(user_id, top_n=5):
+    similar_users = user_similarity_df[user_id].sort_values(ascending=False)[1:]
+    sim_user_id = similar_users.index[0]
+    
+    # Movies rated by similar user not rated by current user
+    unrated = user_movie_ratings.loc[user_id][user_movie_ratings.loc[user_id] == 0]
+    similar_user_ratings = user_movie_ratings.loc[sim_user_id, unrated.index]
+    recommended = similar_user_ratings.sort_values(ascending=False).head(top_n)
+    return recommended.index.tolist()
+
+# Example usage
+print(recommend_movies(user_id=1))
